@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dox Prevention</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <main>
+        <h1>Dox Prevention</h1>
+
+        <!-- File controls -->
+        <div class="file-controls">
+            <input type="file" id="file-input" hidden>
+            <button type="button" id="upload-btn">Upload File</button>
+            <button type="button" id="remove-file-btn">Remove File</button>
+        </div>
+
+        <!-- Removal options: add one checkbox per section; its value matches the section id -->
+        <div class="removal-controls">
+            <label class="checkbox">
+                <input type="checkbox" name="remove-section" value="metadata-section">
+                Metadata
+            </label>
+            <button type="button" id="remove-all-btn">Remove All Confidential Information</button>
+        </div>
+
+        <!-- ===== Metadata Section (copy this block to add a new section) ===== -->
+        <section class="info-section" id="metadata-section">
+            <h2>Metadata</h2>
+            <table>
+                <tbody>
+                    <tr><th>File Name</th><td data-field="FileName"></td></tr>
+                    <tr><th>File Type</th><td data-field="FileType"></td></tr>
+                    <tr><th>File Size</th><td data-field="FileSize"></td></tr>
+                    <tr><th>Created</th><td data-field="CreateDate"></td></tr>
+                    <tr><th>Modified</th><td data-field="ModifyDate"></td></tr>
+                    <tr><th>Camera Make</th><td data-field="Make"></td></tr>
+                    <tr><th>Camera Model</th><td data-field="Model"></td></tr>
+                    <tr><th>Software</th><td data-field="Software"></td></tr>
+                    <tr><th>Author</th><td data-field="Artist"></td></tr>
+                    <tr><th>GPS Latitude</th><td data-field="GPSLatitude"></td></tr>
+                    <tr><th>GPS Longitude</th><td data-field="GPSLongitude"></td></tr>
+                </tbody>
+            </table>
+        </section>
+        <!-- ===== End Metadata Section ===== -->
+
+    </main>
+
+    <script>
+        // Fills a section's fields from a JSON object.
+        // Each <td data-field="Key"> receives data["Key"]; missing keys are left blank.
+        // Example: fillSection("metadata-section", exifData);
+        function fillSection(sectionId, data) {
+            const fields = document.querySelectorAll("#" + sectionId + " [data-field]");
+            fields.forEach(function (field) {
+                const value = data[field.dataset.field];
+                field.textContent = value === undefined || value === null ? "" : value;
+            });
+        }
+    </script>
+
+</body>
+</html>
