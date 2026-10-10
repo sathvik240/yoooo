@@ -1,0 +1,5 @@
+/* All fonts are bundled from npm (@fontsource-variable). No font CDN. */
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/fraunces/full-italic.css';
+@import '@fontsource-variable/instrument-sans/wdth.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';

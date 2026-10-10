@@ -1,0 +1,91 @@
+/**
+ * End-to-end smoke test against the production build.
+ *
+ *   npm run build && npm run e2e            (add --shots to save screenshots)
+ *
+ * It drives the real UI in headless Chromium and records every network
+ * request the page makes. The run fails if anything is requested from an
+ * origin other than the local preview server, or if anything at all is
+ * requested while a file is being read, cleaned and downloaded.
+ */
+import { spawn } from 'node:child_process'
+import { existsSync, mkdirSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { chromium } from 'playwright'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const fx = (n) => resolve(root, 'tests/fixtures', n)
+const SHOTS = process.argv.includes('--shots')
+const shotDir = resolve(root, 'docs/screenshots')
+if (SHOTS) mkdirSync(shotDir, { recursive: true })
+const PORT = 4179
+const ORIGIN = `http://localhost:${PORT}`
+
+const server = spawn(resolve(root, 'node_modules/.bin/vite'), ['preview', '--port', String(PORT), '--strictPort'], { cwd: root, stdio: 'pipe' })
+await new Promise((ok, fail) => {
+  server.stdout.on('data', (d) => String(d).includes(String(PORT)) && ok())
+  server.on('exit', (c) => fail(new Error('preview server exited ' + c)))
+  setTimeout(() => fail(new Error('preview server did not start')), 15000)
+})
+
+const executablePath = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(existsSync)
+const browser = await chromium.launch({ executablePath })
+let failures = 0
+const check = (ok, msg) => {
+  console.log(`${ok ? '  ✓' : '  ✗'} ${msg}`)
+  if (!ok) failures++
+}
+
+async function run(viewport, label) {
+  console.log(`\n${label} (${viewport.width}x${viewport.height})`)
+  const ctx = await browser.newContext({ viewport, acceptDownloads: true, deviceScaleFactor: 2, colorScheme: process.env.SCHEME || 'light' })
+  const page = await ctx.newPage()
+  const requests = []
+  const errors = []
+  page.on('request', (r) => requests.push({ url: r.url(), phase }))
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  let phase = 'load'
+
+  await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+  if (SHOTS) await page.screenshot({ path: `${shotDir}/${label}-1-hero.png` })
+
+  phase = 'use'
+  const before = requests.length
+  await page.setInputFiles('#file-input', [fx('gps.jpg'), fx('meta.png')])
+  await page.waitForSelector('.plate[data-state="ready"]', { timeout: 15000 })
+  await page.waitForTimeout(3200) // let the reveal animation finish
+  const plate = page.locator('.plate').first()
+  if (SHOTS) await plate.screenshot({ path: `${shotDir}/${label}-2-reveal.png` })
+  const ledgerText = await plate.locator('.ledger').innerText()
+  check(/Pixelphone 9 Pro/.test(ledgerText), 'ledger shows the phone model')
+  check(/SN-48151623/.test(ledgerText), 'ledger shows the serial number')
+
+  await plate.getByRole('button', { name: /^Unpin this/ }).click()
+  await plate.locator('.stamp').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(800)
+  if (SHOTS) await plate.screenshot({ path: `${shotDir}/${label}-3-verified.png` })
+  check((await plate.locator('.stamp').innerText()).includes('0 METADATA FIELDS REMAINING'), 'verified stamp says 0 fields remaining')
+
+  const [download] = await Promise.all([page.waitForEvent('download'), plate.getByRole('link', { name: /Download unpinned-1/ }).click()])
+  check(download.suggestedFilename() === 'unpinned-1.jpg', `download is named ${download.suggestedFilename()}`)
+
+  const foreign = requests.filter((r) => !r.url.startsWith(ORIGIN) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
+  check(foreign.length === 0, `no requests to other origins (${foreign.map((r) => r.url).join(', ') || 'none'})`)
+  const during = requests.slice(before).filter((r) => !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
+  console.log(`    requests while using the app: ${during.length ? during.map((r) => r.url.replace(ORIGIN, '')).join(', ') : 'none'}`)
+  check(during.every((r) => r.url.startsWith(ORIGIN + '/assets/')), 'only same-origin app code was fetched during use (no file data can leave)')
+  check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.join(' | ') : ''}`)
+  await ctx.close()
+}
+
+try {
+  await run({ width: 1440, height: 900 }, 'desktop')
+  await run({ width: 390, height: 844 }, 'phone')
+} finally {
+  await browser.close()
+  server.kill()
+}
+console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed')
+process.exit(failures ? 1 : 0)
