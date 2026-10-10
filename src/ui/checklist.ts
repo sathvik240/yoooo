@@ -27,6 +27,14 @@ export const SCREENSHOT_CHECKS: CheckItem[] = [
   { id: 'ss-acct', title: 'No email or account details', detail: 'Email addresses, account numbers, order numbers and QR codes.', redact: true },
 ]
 
+export const VIDEO_CHECKS: CheckItem[] = [
+  { id: 'vid-map', title: 'Nothing that could be matched to a map', detail: 'Street signs, house numbers, plates and landmarks, in any frame, not just the first one.' },
+  { id: 'vid-audio', title: 'Nothing revealing in the sound', detail: 'Names said out loud, station or gate announcements, a local radio station, or a recognisable church bell.' },
+  { id: 'vid-people', title: 'Everyone in it is okay with this', detail: 'Faces and voices of other people, especially kids.' },
+  { id: 'vid-screens', title: 'No screens, mail or badges in view', detail: 'Pause on anything with text and check it\u2019s safe to share.' },
+  { id: 'vid-live', title: 'Not posting \u201cI\u2019m here right now\u201d', detail: 'Share it after you\u2019ve left the place.' },
+]
+
 export const DOC_CHECKS: CheckItem[] = [
   { id: 'doc-text', title: 'The visible text is okay to share', detail: 'Names, addresses, phone numbers and signatures in the body, headers and footers stay as they are.' },
   { id: 'doc-changes', title: 'Tracked changes accepted or rejected', detail: 'Deleted text in tracked changes is still in the file. Accept or reject everything first.' },

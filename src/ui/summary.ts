@@ -11,7 +11,7 @@ export function summarize(f: Findings, family: string): string | null {
   if (family === 'image' || family === 'video') {
     const model = get('Phone / camera model')
     const make = get('Phone / camera maker')
-    const when = get('Taken', 'Created')
+    const when = get('Taken', 'Created', 'Recorded', 'Recorded (file header)')
     const who = get('Camera owner', 'Artist', 'Creator', 'By-line', 'Author')
     const city = get('City')
     if (model) parts.push(`on a ${model.toLowerCase().startsWith((make ?? '').toLowerCase()) || !make ? model : `${make} ${model}`}`)

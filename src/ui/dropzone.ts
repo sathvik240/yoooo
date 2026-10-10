@@ -24,9 +24,9 @@ export function dropzone(onFiles: (files: File[]) => void): HTMLElement {
     h('span.corner.tr', { 'aria-hidden': 'true' }),
     h('span.corner.bl', { 'aria-hidden': 'true' }),
     h('span.corner.br', { 'aria-hidden': 'true' }),
-    h('p.drop-title', h('span.only-fine', 'Drop photos or documents here'), h('span.only-coarse', 'Pick photos from your camera roll')),
+    h('p.drop-title', h('span.only-fine', 'Drop photos, videos or documents'), h('span.only-coarse', 'Pick photos from your camera roll')),
     h('button.btn.btn-primary.drop-btn', { type: 'button', onclick: pick }, h('span.only-fine', 'Choose files'), h('span.only-coarse', 'Choose photos')),
-    h('p.drop-hint', 'JPEG, PNG, WebP, HEIC · PDF, Word, Excel, PowerPoint · several at once'),
+    h('p.drop-hint', 'JPEG, PNG, WebP, HEIC · PDF, Word, Excel, PowerPoint · MP4, MOV · several at once'),
     h('p.drop-promise', h('span.lock', { 'aria-hidden': 'true' }), 'Files never leave this device. There is no server to send them to.'),
     input,
   )

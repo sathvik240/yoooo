@@ -9,9 +9,10 @@ import { ContourMap } from './contour'
 import { liftWordmarkPin } from './wordmark'
 import { openEditor } from './editor'
 import { compareSlider } from './compare'
-import { checklist, PHOTO_CHECKS, SCREENSHOT_CHECKS, DOC_CHECKS } from './checklist'
+import { checklist, PHOTO_CHECKS, SCREENSHOT_CHECKS, DOC_CHECKS, VIDEO_CHECKS } from './checklist'
 import { DocSheet } from './docsheet'
 import { readDocument, cleanDocument, officeExt } from '../lib/docHandler'
+import { readVideo, cleanVideo } from '../lib/video'
 import { detectScreenshot, looksLikeStatusBar, type ScreenshotVerdict } from '../lib/screenshot'
 import { decodeAny } from '../lib/strip'
 import { renderRedacted, type Stroke } from '../lib/redact'
@@ -110,6 +111,9 @@ export class Plate {
         this.sheet = new DocSheet(ext, this.findings.fields)
         this.stage.classList.add('has-sheet')
         this.stage.replaceChildren(this.sheet.el)
+      } else if (this.family === 'video') {
+        this.findings = await readVideo(this.file)
+        this.renderVideoStage()
       } else {
         throw new FriendlyError(
           'Unpin can\u2019t clean this kind of file.',
@@ -142,6 +146,19 @@ export class Plate {
       return detectScreenshot(img, width, height, bar)
     } catch {
       return undefined
+    }
+  }
+
+  private renderVideoStage() {
+    const video = h('video.stage-photo', { src: this.url(this.file), muted: true, playsinline: true, controls: true, preload: 'metadata', 'aria-label': 'Your video' }) as HTMLVideoElement
+    video.addEventListener('error', () => video.replaceWith(h('p.stage-nopreview', 'This browser can\u2019t preview this video, but it can still be cleaned.')), { once: true })
+    const gps = this.findings?.image?.gps
+    if (gps) {
+      this.map = new ContourMap(gps.latitude, gps.longitude, gps.altitude)
+      this.stage.classList.add('has-map')
+      this.stage.replaceChildren(this.map.el, h('div.stage-inset', video))
+    } else {
+      this.stage.replaceChildren(video, h('p.stage-tag', 'No location in this file'))
     }
   }
 
@@ -214,6 +231,8 @@ export class Plate {
         onRedact: () => this.redact(),
         idPrefix: `p${this.index}`,
       }))
+    } else if (this.family === 'video') {
+      parts.push(checklist(VIDEO_CHECKS, { title: 'Check before you post', intro: 'Cleaning removes hidden data. Videos show and say a lot more than photos; watch it through once.', idPrefix: `v${this.index}` }))
     } else {
       parts.push(checklist(DOC_CHECKS, { title: 'Check before you send', intro: 'Cleaning removes hidden properties. These live in the document itself.', idPrefix: `d${this.index}` }))
     }
@@ -276,7 +295,11 @@ export class Plate {
     this.setState('cleaning')
     this.actions.querySelectorAll('button').forEach((b) => (b.disabled = true))
     try {
-      const clean = this.family === 'image' ? cleanImage(this.file, this.index, this.strokes) : cleanDocument(this.file, this.family as 'pdf' | 'office', this.index)
+      const clean = this.family === 'image'
+        ? cleanImage(this.file, this.index, this.strokes)
+        : this.family === 'video'
+          ? cleanVideo(this.file, this.index)
+          : cleanDocument(this.file, this.family as 'pdf' | 'office', this.index)
       const [result] = await Promise.all([clean, this.ledger!.scrub(), this.map?.scrub(), this.sheet?.scrub()])
       this.result = result
       await sleep(150)
@@ -299,7 +322,9 @@ export class Plate {
     const before = this.findings?.fields.filter(isIdentifying).length ?? 0
     if (v.clean) this.status.textContent = before ? `It carried ${before} hidden detail${before === 1 ? '' : 's'}. The clean copy carries none.` : 'The clean copy carries no hidden details.'
     if (v.clean) {
-      const detail = this.family === 'image'
+      const detail = this.family === 'video'
+        ? `Re-read after cleaning: location, device, names and timestamps are gone. The video and audio are byte-for-byte untouched (no re-encoding). Saved as ${r.name}, ${formatBytes(r.blob.size)}.`
+        : this.family === 'image'
         ? `Re-read with two independent parsers. Only the pixels${dims ? ` (${dims})` : ''} and basic format info needed to display the image are left. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`
         : `Re-read after cleaning: properties, hidden XML and author names are gone; the content is untouched. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`
       this.verifySlot.replaceChildren(
