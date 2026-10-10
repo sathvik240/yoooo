@@ -143,7 +143,39 @@ async function batch() {
   await ctx.close()
 }
 
+async function documents() {
+  console.log('\ndocuments + screenshot (1440x900)')
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true, deviceScaleFactor: 2 })
+  const page = await ctx.newPage()
+  const requests = []
+  const errors = []
+  page.on('request', (r) => requests.push(r.url()))
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+  await page.setInputFiles('#file-input', [fx('sample.docx'), fx('sample.pdf'), fx('screenshot.png')])
+  await page.waitForFunction(() => document.querySelectorAll('.plate[data-state="ready"]').length === 3, null, { timeout: 20000 })
+  await page.waitForTimeout(2500)
+  const docx = page.locator('.plate').nth(0)
+  check(/Jamie Doe/.test(await docx.locator('.doc-card').innerText()), 'DOCX reveal shows the author name')
+  if (SHOTS) await docx.screenshot({ path: `${shotDir}/doc-1-reveal.png` })
+  const shot = page.locator('.plate').nth(2)
+  check(await shot.locator('.shot-warning').isVisible(), 'screenshot warning shown for the screenshot')
+  if (SHOTS) await shot.locator('.plate-check').screenshot({ path: `${shotDir}/shot-warning.png` })
+  await page.getByRole('button', { name: /Unpin all 3/ }).click()
+  await page.waitForFunction(() => document.querySelectorAll('.plate[data-state="clean"], .plate[data-state="error"], .plate[data-state="unverified"]').length === 3, null, { timeout: 30000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const states = await page.$$eval('.plate', (els) => els.map((e) => `${e.querySelector('.plate-title').textContent}=${e.dataset.state}`))
+  check(states.every((x) => x.endsWith('=clean')), `DOCX, PDF and screenshot verified clean: ${states.join(', ')}`)
+  if (SHOTS) await docx.screenshot({ path: `${shotDir}/doc-2-verified.png` })
+  const foreign = requests.filter((u) => !u.startsWith(ORIGIN) && !u.startsWith('blob:') && !u.startsWith('data:'))
+  check(foreign.length === 0, 'no requests to other origins')
+  check(errors.length === 0, `no console errors${errors.length ? ': ' + errors.join(' | ') : ''}`)
+  await ctx.close()
+}
+
 try {
+  await documents()
   await batch()
   await run({ width: 1440, height: 900 }, 'desktop')
   await run({ width: 390, height: 844 }, 'phone')

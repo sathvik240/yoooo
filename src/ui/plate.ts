@@ -9,13 +9,16 @@ import { ContourMap } from './contour'
 import { liftWordmarkPin } from './wordmark'
 import { openEditor } from './editor'
 import { compareSlider } from './compare'
-import { checklist, PHOTO_CHECKS } from './checklist'
+import { checklist, PHOTO_CHECKS, SCREENSHOT_CHECKS, DOC_CHECKS } from './checklist'
+import { DocSheet } from './docsheet'
+import { readDocument, cleanDocument, officeExt } from '../lib/docHandler'
+import { detectScreenshot, looksLikeStatusBar, type ScreenshotVerdict } from '../lib/screenshot'
 import { decodeAny } from '../lib/strip'
 import { renderRedacted, type Stroke } from '../lib/redact'
 
 export type PlateState = 'reading' | 'ready' | 'cleaning' | 'clean' | 'unverified' | 'error'
 
-const FAMILY_LABEL: Record<FileFamily, string> = { image: 'Photo', pdf: 'PDF', office: 'Office file', video: 'Video', unsupported: 'File' }
+const FAMILY_LABEL: Record<FileFamily, string> = { image: 'Photo', pdf: 'PDF', office: 'Document', video: 'Video', unsupported: 'File' }
 
 export interface PlateHost {
   changed(plate: Plate): void
@@ -35,6 +38,8 @@ export class Plate {
   private urls: string[] = []
   private ledger?: Ledger
   private map?: ContourMap
+  private sheet?: DocSheet
+  private screenshot?: ScreenshotVerdict
   private strokes: Stroke[] = []
   private photoEls: HTMLImageElement[] = []
   private compareSlot: HTMLElement
@@ -95,19 +100,48 @@ export class Plate {
       const head = new Uint8Array(await this.file.slice(0, 32).arrayBuffer())
       this.family = familyOf(this.file, head)
       this.el.querySelector('.plate-meta')!.textContent = `${FAMILY_LABEL[this.family]} · ${formatBytes(this.file.size)}`
-      if (this.family !== 'image') {
+      if (this.family === 'image') {
+        this.findings = await readImage(this.file)
+        this.screenshot = await this.checkScreenshot()
+        this.renderStage()
+      } else if (this.family === 'pdf' || this.family === 'office') {
+        this.findings = await readDocument(this.file, this.family)
+        const ext = this.family === 'pdf' ? 'pdf' : officeExt(this.file.name)
+        this.sheet = new DocSheet(ext, this.findings.fields)
+        this.stage.classList.add('has-sheet')
+        this.stage.replaceChildren(this.sheet.el)
+      } else {
         throw new FriendlyError(
-          'Unpin can’t clean this kind of file yet.',
-          'Photos (JPEG, PNG, WebP, HEIC) are supported. Try exporting this file as one of those.',
+          'Unpin can\u2019t clean this kind of file.',
+          'Supported: photos (JPEG, PNG, WebP, HEIC), PDFs, and Word, Excel or PowerPoint files (.docx, .xlsx, .pptx).',
         )
       }
-      this.findings = await readImage(this.file)
-      this.renderStage()
       this.renderFindings()
       this.setState('ready')
-      await Promise.all([this.ledger!.reveal(), this.map?.reveal()])
+      await Promise.all([this.ledger!.reveal(), this.map?.reveal(), this.sheet?.reveal()])
     } catch (err) {
       this.fail(err)
+    }
+  }
+
+  /** Screenshots get their own warnings (usernames, tabs, notifications...). */
+  private async checkScreenshot(): Promise<ScreenshotVerdict | undefined> {
+    const img = this.findings?.image
+    if (!img || img.kind === 'heic' || img.kind === 'avif') return undefined
+    try {
+      const bmp = await createImageBitmap(this.file, { imageOrientation: 'from-image' })
+      const { width, height } = bmp
+      const sw = 200, sh = Math.max(1, Math.round((height / width) * sw))
+      const c = document.createElement('canvas')
+      c.width = sw
+      c.height = sh
+      const ctx = c.getContext('2d', { willReadFrequently: true })!
+      ctx.drawImage(bmp, 0, 0, sw, sh)
+      bmp.close()
+      const bar = looksLikeStatusBar(ctx.getImageData(0, 0, sw, sh).data, sw, sh)
+      return detectScreenshot(img, width, height, bar)
+    } catch {
+      return undefined
     }
   }
 
@@ -148,8 +182,9 @@ export class Plate {
     const sentence = summarize(f, this.family)
     this.summary.textContent = sentence ?? ''
     this.summary.hidden = !sentence
+    const noun = this.screenshot?.isScreenshot ? 'screenshot' : FAMILY_LABEL[this.family].toLowerCase()
     this.status.textContent = count
-      ? `This ${FAMILY_LABEL[this.family].toLowerCase()} is broadcasting ${count} piece${count === 1 ? '' : 's'} of information.`
+      ? `This ${noun} is carrying ${count} hidden detail${count === 1 ? '' : 's'}.`
       : 'No hidden information found. You can still make a clean copy.'
     this.ledger = new Ledger(f.fields, { emptyText: 'Nothing hidden in this file.' })
     this.ledgerSlot.replaceChildren(this.ledger.el)
@@ -164,13 +199,25 @@ export class Plate {
 
   /** "Check before you post": shown with every file. */
   protected renderChecklist() {
-    if (this.family !== 'image') return
-    this.checkSlot.replaceChildren(checklist(PHOTO_CHECKS, {
-      title: 'Check before you post',
-      intro: 'Stripping metadata can’t change what’s visible in the picture. A quick look for these usually takes ten seconds.',
-      onRedact: () => this.redact(),
-      idPrefix: `p${this.index}`,
-    }))
+    const parts: HTMLElement[] = []
+    if (this.screenshot?.isScreenshot) {
+      parts.push(h('div.shot-warning', { role: 'note' },
+        h('p.shot-title', 'This looks like a screenshot'),
+        h('ul.shot-reasons', ...this.screenshot.reasons.map((r) => h('li', r))),
+        h('p.shot-body', 'Screenshots rarely carry location, but they often show things that identify you directly. Check the list below, then use the brush to cover anything you find.'),
+        h('button.btn.btn-primary.btn-small', { type: 'button', onclick: () => this.redact() }, 'Open the redaction brush')))
+      parts.push(checklist(SCREENSHOT_CHECKS, { title: 'Screenshot check', intro: 'Look for each of these before you share it.', onRedact: () => this.redact(), idPrefix: `s${this.index}` }))
+    } else if (this.family === 'image') {
+      parts.push(checklist(PHOTO_CHECKS, {
+        title: 'Check before you post',
+        intro: 'Stripping metadata can\u2019t change what\u2019s visible in the picture. A quick look for these usually takes ten seconds.',
+        onRedact: () => this.redact(),
+        idPrefix: `p${this.index}`,
+      }))
+    } else {
+      parts.push(checklist(DOC_CHECKS, { title: 'Check before you send', intro: 'Cleaning removes hidden properties. These live in the document itself.', idPrefix: `d${this.index}` }))
+    }
+    this.checkSlot.replaceChildren(...parts)
   }
 
   private renderReadyActions() {
@@ -229,7 +276,8 @@ export class Plate {
     this.setState('cleaning')
     this.actions.querySelectorAll('button').forEach((b) => (b.disabled = true))
     try {
-      const [result] = await Promise.all([cleanImage(this.file, this.index, this.strokes), this.ledger!.scrub(), this.map?.scrub()])
+      const clean = this.family === 'image' ? cleanImage(this.file, this.index, this.strokes) : cleanDocument(this.file, this.family as 'pdf' | 'office', this.index)
+      const [result] = await Promise.all([clean, this.ledger!.scrub(), this.map?.scrub(), this.sheet?.scrub()])
       this.result = result
       await sleep(150)
       this.renderVerified()
@@ -247,21 +295,28 @@ export class Plate {
     const kept = v.structural.filter((f) => /width|height/i.test(f.label)).map((f) => f.value)
     const dims = r.width && r.height ? `${r.width}×${r.height}` : kept.join('×')
     const download = h('a.btn.btn-primary', { href: this.url(r.blob), download: r.name }, `Download ${r.name}`)
+    const caveats = (r.notes ?? []).map((n) => h('p.note', n))
     if (v.clean) {
+      const detail = this.family === 'image'
+        ? `Re-read with two independent parsers. Only the pixels${dims ? ` (${dims})` : ''} and basic format info needed to display the image are left. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`
+        : `Re-read after cleaning: properties, hidden XML and author names are gone; the content is untouched. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`
       this.verifySlot.replaceChildren(
         h('div.stamp', { role: 'status' }, h('span.stamp-top', 'Verified'), h('span.stamp-main', '0 metadata fields remaining')),
-        h('p.verify-detail', `Re-read with two independent parsers. Only the pixels${dims ? ` (${dims})` : ''} and basic format info needed to display the image are left. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`),
+        h('p.verify-detail', detail),
+        ...caveats,
       )
     } else {
       this.verifySlot.replaceChildren(
         h('div.verify-fail', { role: 'alert' }, h('strong', `Not verified: ${v.remaining.length + v.notes.length} item${v.remaining.length + v.notes.length === 1 ? '' : 's'} still found`),
           h('ul', ...v.remaining.map((f) => h('li', `${f.label}: ${f.value}`)), ...v.notes.map((n) => h('li', n))),
-          h('p', 'We won’t call this file clean. Try exporting it as a JPEG from your photo app and cleaning that copy.')),
+          h('p', this.family === 'image' ? 'We won\u2019t call this file clean. Try exporting it as a JPEG from your photo app and cleaning that copy.' : 'We won\u2019t call this file clean. Try \u201cSave as\u201d a fresh copy (or \u201cPrint \u2192 Save as PDF\u201d) and clean that.')),
+        ...caveats,
       )
       download.textContent = `Download anyway (not fully clean)`
       download.classList.replace('btn-primary', 'btn-ghost')
     }
-    this.actions.replaceChildren(download, h('button.btn.btn-ghost', { type: 'button', onclick: () => this.redact() }, this.strokes.length ? 'Edit redactions' : 'Redact areas'))
+    this.actions.replaceChildren(download)
+    if (this.family === 'image') this.actions.append(h('button.btn.btn-ghost', { type: 'button', onclick: () => this.redact() }, this.strokes.length ? 'Edit redactions' : 'Redact areas'))
     this.redactNote.textContent = this.strokes.length ? `${this.strokes.length} redaction${this.strokes.length === 1 ? '' : 's'} baked into the pixels.` : ''
     this.compareSlot.replaceChildren()
     if (this.strokes.length) this.compareSlot.append(compareSlider(this.url(this.file), this.url(r.blob)))

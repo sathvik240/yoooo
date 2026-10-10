@@ -33,6 +33,8 @@ export interface CleanResult {
   height?: number
   /** What was removed, for the scrub animation. */
   removed: Field[]
+  /** Caveats about what cleaning could not do. */
+  notes?: string[]
 }
 
 export class FriendlyError extends Error {

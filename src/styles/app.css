@@ -307,7 +307,7 @@ body.dragging .drop .corner::before, body.dragging .drop .corner::after { backgr
 }
 
 /* ========================================================== contour plate */
-.stage.has-map { display: block; background: var(--paper-2); }
+.stage.has-map { display: block; place-items: normal; background: var(--paper-2); }
 @media (min-width: 861px) { .stage { position: sticky; top: 76px; } }
 .contour { position: relative; }
 .contour-svg { width: 100%; aspect-ratio: 4 / 3; height: auto; }
@@ -651,3 +651,71 @@ html.editor-open { overflow: hidden; }
   .check-redact { grid-column: 2; justify-self: start; }
   .limits-list li { padding-right: 0; }
 }
+
+/* ============================================================ doc sheet */
+.stage.has-sheet { display: block; place-items: normal; padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 48px); background-image: radial-gradient(var(--contour) 1px, transparent 1px); background-size: 18px 18px; }
+.docsheet { position: relative; min-height: 340px; }
+.doc-page {
+  position: relative;
+  width: min(78%, 360px);
+  aspect-ratio: 1 / 1.3;
+  background: #fbf8f2;
+  border: 1px solid var(--contour);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 22px 44px -26px rgba(0, 0, 0, 0.45);
+  transform: rotate(-2.5deg);
+  padding: 13% 11%;
+  clip-path: polygon(0 0, 86% 0, 100% 10%, 100% 100%, 0 100%);
+}
+.doc-page::after { content: ''; position: absolute; right: 0; top: 0; width: 14%; height: 10%; background: linear-gradient(225deg, transparent 50%, var(--paper-3) 50%); }
+.doc-ext { position: absolute; top: 5%; left: 11%; font: 700 0.78rem var(--f-mono); letter-spacing: 0.14em; color: var(--pin-ink); }
+.doc-lines { display: grid; gap: 10px; }
+.doc-line { display: block; height: 7px; width: var(--w); background: #dcd5c6; border-radius: 1px; }
+.doc-card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: min(72%, 330px);
+  background: var(--paper);
+  border: var(--rule);
+  padding: 16px 18px 18px;
+  transform: rotate(1.5deg) translateY(12px);
+  opacity: 0;
+  transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out);
+}
+.docsheet.revealed .doc-card { opacity: 1; transform: rotate(1.5deg); }
+.doc-card-head { font: 500 0.7rem var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--graphite); margin-bottom: 10px; }
+.docsheet.scrubbed .doc-card-head { color: var(--cleared); }
+.doc-names { list-style: none; display: grid; gap: 6px; }
+.doc-name { opacity: 0; transform: translateX(-6px); transition: opacity 400ms, transform 400ms var(--ease-out); }
+.doc-name.in, .docsheet.revealed .doc-name:not(.in) { opacity: 1; transform: none; }
+.doc-name-text {
+  position: relative;
+  display: inline-block;
+  font: 650 clamp(1.1rem, 2vw, 1.45rem)/1.2 var(--f-display);
+  font-variation-settings: 'opsz' 36, 'SOFT' 50;
+  overflow-wrap: anywhere;
+}
+.doc-name-text::after {
+  content: '';
+  position: absolute;
+  left: -3px; right: -3px; top: 12%; bottom: 8%;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 380ms var(--ease-out);
+}
+.doc-name.redacted .doc-name-text::after { transform: scaleX(1); }
+
+/* ====================================================== screenshot warning */
+.shot-warning {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  border: 1.5px solid var(--pin-ink);
+  background: color-mix(in srgb, var(--pin) 7%, var(--paper));
+}
+.shot-title { font: 700 1.35rem/1.15 var(--f-display); font-variation-settings: 'opsz' 36, 'SOFT' 100, 'WONK' 1; }
+.shot-reasons { padding-left: 1.1em; font: 0.84rem/1.5 var(--f-mono); color: var(--graphite); }
+.shot-body { max-width: 62ch; }

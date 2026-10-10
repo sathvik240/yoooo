@@ -27,6 +27,14 @@ export const SCREENSHOT_CHECKS: CheckItem[] = [
   { id: 'ss-acct', title: 'No email or account details', detail: 'Email addresses, account numbers, order numbers and QR codes.', redact: true },
 ]
 
+export const DOC_CHECKS: CheckItem[] = [
+  { id: 'doc-text', title: 'The visible text is okay to share', detail: 'Names, addresses, phone numbers and signatures in the body, headers and footers stay as they are.' },
+  { id: 'doc-changes', title: 'Tracked changes accepted or rejected', detail: 'Deleted text in tracked changes is still in the file. Accept or reject everything first.' },
+  { id: 'doc-hidden', title: 'No hidden rows, sheets, slides or speaker notes', detail: 'Hidden content travels with the file and is one click away for the reader.' },
+  { id: 'doc-images', title: 'Images and screenshots inside are safe', detail: 'Check pictures in the document for the same things you\u2019d check in a photo.' },
+  { id: 'doc-redact', title: 'Black boxes are real redactions', detail: 'A black rectangle drawn over text in a PDF often leaves the text underneath selectable. Use a real redaction tool.' },
+]
+
 /**
  * "Check before you post": the risks metadata stripping can't fix. Purely
  * local; ticks are just for the person using it.
