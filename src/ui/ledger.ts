@@ -72,9 +72,14 @@ export class Ledger {
       if (v && !reducedMotion()) scramble(v)
       await sleep(per)
     }
-    await sleep(350)
-    for (const g of this.el.querySelectorAll('.ledger-group')) {
-      if (!g.querySelector('.ledger-row:not(.scrubbed)')) g.classList.add('cleared')
+    await sleep(500)
+    // Fold each cleared group into one line so the result reads at a glance.
+    for (const g of this.el.querySelectorAll<HTMLElement>('.ledger-group')) {
+      if (g.querySelector('.ledger-row:not(.scrubbed)')) continue
+      const labels = [...g.querySelectorAll('dt')].map((d) => d.childNodes[1]?.textContent ?? '').filter(Boolean)
+      g.querySelector('.ledger-list')!.after(h('p.ledger-gone', `Removed: ${[...new Set(labels)].join(', ')}`))
+      g.classList.add('cleared')
+      await sleep(reducedMotion() ? 0 : 60)
     }
   }
 }

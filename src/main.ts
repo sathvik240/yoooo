@@ -6,6 +6,8 @@ import { dropzone } from './ui/dropzone'
 import { Plate, type PlateHost } from './ui/plate'
 import { wordmark } from './ui/wordmark'
 import { scannerPanel } from './ui/scannerPanel'
+import { decorativeContours } from './ui/contour'
+import { watchNetwork } from './lib/netwatch'
 
 const app = $('#app')!
 
@@ -13,14 +15,16 @@ app.innerHTML = /* html */ `
   <header class="masthead">
     <a class="masthead-mark" href="./" aria-label="Unpin home">unpin</a>
     <nav class="masthead-nav" aria-label="Sections">
-      <a href="#clean">Clean files</a>
-      <a href="#caption">Check a caption</a>
-      <a href="#limits">What it can’t do</a>
-      <a href="./beyond.html">Beyond files</a>
+      <a href="#clean">Clean<span class="long"> files</span></a>
+      <a href="#caption"><span class="long">Check a </span>caption</a>
+      <a href="#limits"><span class="long">What it can’t do</span><span class="short">Limits</span></a>
+      <a href="./beyond.html">Beyond<span class="long"> files</span></a>
     </nav>
+    <p class="netbadge" title="Counted by your browser since this page opened"><span class="netdot" aria-hidden="true"></span><span class="netcount">0</span> outside requests</p>
   </header>
   <main id="main" tabindex="-1">
     <section class="hero" id="clean" aria-labelledby="hero-title">
+      <div class="hero-bg" aria-hidden="true"></div>
       <h1 id="hero-title" class="wordmark-wrap"></h1>
       <p class="lede">Your photos are talking. Unpin shows you what they say: <em>where</em> you were, <em>when</em>, on <em>which phone</em>. Then it makes them stop.</p>
       <div class="drop-slot"></div>
@@ -60,6 +64,11 @@ app.innerHTML = /* html */ `
 `
 
 $('.wordmark-wrap')!.append(wordmark())
+$('.hero-bg')!.append(decorativeContours(20240601))
+watchNetwork((n) => {
+  $('.netcount')!.textContent = String(n)
+  document.querySelector('.netbadge')!.classList.toggle('warn', n > 0)
+})
 
 const platesSection = $('.plates-section')!
 const platesEl = $('.plates')!
@@ -99,6 +108,7 @@ function addFiles(files: File[]) {
 
 function renderBatchbar() {
   platesSection.hidden = plates.length === 0
+  batchbar.hidden = plates.length < 2
   const ready = plates.filter((p) => p.state === 'ready')
   batchbar.replaceChildren(h('p.batch-count', `${plates.length} file${plates.length === 1 ? '' : 's'}`))
   if (ready.length > 1) batchbar.append(h('button.btn.btn-ghost.btn-small', { type: 'button', onclick: unpinAll }, `Unpin all ${ready.length}`))
@@ -125,4 +135,17 @@ async function unpinAll() {
 }
 
 $('.drop-slot')!.append(dropzone(addFiles))
+$('.drop-slot')!.append(
+  h('p.samples', 'No file handy? Try ',
+    h('button.linkish', { type: 'button', onclick: () => loadSample('IMG_20240601_081422.jpg', 'image/jpeg') }, 'a sample photo'),
+    ' or ',
+    h('button.linkish', { type: 'button', onclick: () => loadSample('Budget_JamieDoe_v3.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') }, 'a sample document'),
+    '.'),
+)
+
+/** Samples ship with the site (same origin), so loading one sends nothing anywhere. */
+async function loadSample(name: string, type: string) {
+  const res = await fetch(`./samples/${name}`)
+  addFiles([new File([await res.blob()], name, { type })])
+}
 $('.caption-slot')!.append(scannerPanel())

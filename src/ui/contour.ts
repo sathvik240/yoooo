@@ -145,6 +145,20 @@ export class ContourMap {
   }
 }
 
+/** Decorative contour paths (hero background). Same terrain generator, random seed. */
+export function decorativeContours(seed: number, levels = 12): SVGSVGElement {
+  const field = noiseField(seed)
+  const el = svg('svg', { class: 'hero-contours', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': 'true', focusable: 'false' })
+  for (let i = 1; i < levels; i++) {
+    const d = marchingSquares(field, i / levels)
+    if (!d) continue
+    const p = svg('path', { d, pathLength: 1, class: i % 4 === 0 ? 'index' : '' })
+    p.style.setProperty('--i', String(i))
+    el.append(p)
+  }
+  return el
+}
+
 function dms(v: number, hemi: string): string {
   const a = Math.abs(v)
   const d = Math.floor(a)

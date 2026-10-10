@@ -296,6 +296,8 @@ export class Plate {
     const dims = r.width && r.height ? `${r.width}×${r.height}` : kept.join('×')
     const download = h('a.btn.btn-primary', { href: this.url(r.blob), download: r.name }, `Download ${r.name}`)
     const caveats = (r.notes ?? []).map((n) => h('p.note', n))
+    const before = this.findings?.fields.filter(isIdentifying).length ?? 0
+    if (v.clean) this.status.textContent = before ? `It carried ${before} hidden detail${before === 1 ? '' : 's'}. The clean copy carries none.` : 'The clean copy carries no hidden details.'
     if (v.clean) {
       const detail = this.family === 'image'
         ? `Re-read with two independent parsers. Only the pixels${dims ? ` (${dims})` : ''} and basic format info needed to display the image are left. Saved as ${r.name}, ${formatBytes(r.blob.size)}.`

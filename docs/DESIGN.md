@@ -15,11 +15,11 @@ unpin the file.
 | `--paper`      | Survey Paper     | `#F2EDE3` | page background |
 | `--paper-2`    | Vellum           | `#E9E2D4` | recessed panels, map plate |
 | `--ink`        | Plotter Ink      | `#17181C` | text, rules, wordmark |
-| `--graphite`   | Graphite         | `#565A63` | secondary text (6.0:1 on paper) |
+| `--graphite`   | Graphite         | `#565A63` | secondary text (5.9:1 on paper) |
 | `--contour`    | Contour          | `#C8BFAD` | hairlines, grid, contour lines |
 | `--pin`        | Pin Vermilion    | `#E5432A` | the pin, exposure highlights (graphics + large text only) |
-| `--pin-ink`    | Deep Vermilion   | `#B12E18` | small text that must be red (5.3:1 on paper) |
-| `--cleared`    | Survey Green     | `#24624F` | "verified clean" stamp, success text (6.4:1) |
+| `--pin-ink`    | Deep Vermilion   | `#B12E18` | small text that must be red (5.5:1 on paper) |
+| `--cleared`    | Survey Green     | `#24624F` | "verified clean" stamp, success text (6.1:1) |
 
 Dark mode swaps paper and ink (`#121316` night plate, `#ECE5D8` text) and lifts
 vermilion to `#FF6B4F` for contrast. No gradients, no glassmorphism, no purple.
