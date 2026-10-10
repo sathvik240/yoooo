@@ -305,3 +305,100 @@ body.dragging .drop .corner::before, body.dragging .drop .corner::after { backgr
   .ledger-row { grid-template-columns: minmax(0, 1fr); }
   .masthead-nav { gap: 2px 16px; }
 }
+
+/* ========================================================== contour plate */
+.stage.has-map { display: block; background: var(--paper-2); }
+@media (min-width: 861px) { .stage { position: sticky; top: 76px; } }
+.contour { position: relative; }
+.contour-svg { width: 100%; aspect-ratio: 4 / 3; height: auto; }
+.graticule line { stroke: var(--contour); stroke-width: 0.6; stroke-dasharray: 2 4; }
+.contours path {
+  fill: none;
+  stroke: var(--graphite);
+  stroke-width: 0.8;
+  stroke-opacity: 0.55;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.contours path.index { stroke-width: 1.5; stroke-opacity: 0.8; }
+.contour.revealed .contours path {
+  animation: draw 1400ms var(--ease-out) forwards;
+  animation-delay: calc(var(--i) * 45ms);
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.grid-labels text, .scale text { font: 500 11px var(--f-mono); fill: var(--graphite); letter-spacing: 0.08em; }
+.scale rect { fill: var(--ink); }
+.scale rect.hollow { fill: none; stroke: var(--ink); stroke-width: 1; }
+
+.target line { stroke: var(--ink); stroke-width: 1.2; opacity: 0; transition: opacity 400ms 500ms; }
+.target .ring { fill: none; stroke: var(--pin); stroke-width: 1.2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.contour.revealed .target line { opacity: 1; }
+.contour.pinned .target .ring { animation: ring 2400ms var(--ease-out) infinite; }
+.contour.pinned .target .ring-2 { animation-delay: 300ms; }
+.contour.pinned .target .ring-3 { animation-delay: 600ms; }
+@keyframes ring { 0% { opacity: 0.9; transform: scale(0.3); } 100% { opacity: 0; transform: scale(1.4); } }
+
+.map-pin { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; }
+.pin-shadow { fill: var(--ink); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.contour.pinned .map-pin { animation: map-pin-drop 760ms var(--ease-drop) forwards; }
+.contour.pinned .pin-shadow { animation: shadow-in 760ms var(--ease-out) forwards; }
+@keyframes map-pin-drop {
+  0% { opacity: 0; transform: translateY(-160px) scale(0.85); }
+  50% { opacity: 1; }
+  74% { transform: translateY(0) scale(1.08, 0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes shadow-in { from { opacity: 0; transform: scale(0.2); } to { opacity: 0.22; transform: scale(1); } }
+
+.contour.unpinning .map-pin { animation: map-pin-lift 900ms var(--ease-out) forwards; }
+.contour.unpinning .pin-shadow { animation: none; opacity: 0; transition: opacity 400ms; }
+.contour.unpinning .target .ring { animation: none; opacity: 0; }
+.contour.unpinned .target line { stroke: var(--cleared); }
+@keyframes map-pin-lift {
+  0% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  30% { opacity: 1; transform: translateY(-26px) scale(1.05); }
+  100% { opacity: 0; transform: translateY(-70px) scale(0.6); filter: blur(6px); }
+}
+.particles circle { fill: var(--pin); animation: particle 1200ms var(--ease-out) forwards; }
+@keyframes particle {
+  0% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
+}
+
+.map-readout {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 10px 14px;
+  background: var(--paper);
+  border: var(--rule);
+  display: grid;
+  gap: 2px;
+  max-width: calc(100% - 28px);
+}
+.map-coords { font: 700 clamp(0.88rem, 1.6vw, 1.08rem)/1.2 var(--f-mono); color: var(--pin-ink); font-variant-numeric: tabular-nums; }
+.contour.unpinned .map-coords { color: var(--cleared); }
+.map-sub { font: 0.72rem var(--f-mono); color: var(--graphite); letter-spacing: 0.04em; }
+.map-caption { padding: 12px 14px; font-size: 0.85rem; color: var(--graphite); border-top: var(--hair); background: var(--paper); }
+
+.stage-inset {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: clamp(84px, 24%, 150px);
+  padding: 5px 5px 18px;
+  background: #fbf8f2;
+  border: 1px solid var(--contour);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), 0 8px 20px -10px rgba(0, 0, 0, 0.35);
+  transform: rotate(2.5deg);
+}
+.stage-inset .stage-photo { max-height: none; }
+.stage-tag {
+  position: absolute; left: 12px; bottom: 12px;
+  font: 500 0.7rem var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--paper); border: var(--hair); padding: 6px 10px;
+}
+.stage-nopreview { padding: 40px; color: var(--graphite); font-size: 0.9rem; }
+.thumb-peek { display: block; margin-top: 8px; width: 96px; border: 1px solid var(--contour); image-rendering: auto; }
+.ledger-row.scrubbed .thumb-peek { opacity: 0; transition: opacity 400ms; }

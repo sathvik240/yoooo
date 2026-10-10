@@ -18,6 +18,7 @@ export class Ledger {
     if (!identifying.length) {
       this.el.append(h('p.ledger-empty', opts.emptyText))
     }
+    const saidWhy = new Set<string>()
     for (const group of GROUP_ORDER) {
       // Format-only info (JFIF version, dimensions) identifies nobody; it is
       // summarised in the verification note instead of cluttering the ledger.
@@ -30,9 +31,9 @@ export class Ledger {
           `div.ledger-row.risk-${f.risk}`,
           { 'data-key': f.key },
           h('dt', h('span.risk-mark', { 'aria-hidden': 'true' }), f.label, f.risk === 'high' ? h('span.sr-only', ' (high risk)') : null),
-          h('dd', h('span.value', f.value), f.why ? h('span.why', f.why) : null),
+          h('dd', h('span.value', f.value), f.why && !saidWhy.has(f.why) ? h('span.why', f.why) : null),
         )
-        if (group === 'image') row.classList.add('structural')
+        if (f.why) saidWhy.add(f.why)
         this.rows.push(row)
         list.append(row)
       }

@@ -80,7 +80,7 @@ function sniffFamily(b: Uint8Array): FileFamily | 'zip' | null {
 export function filenameFinding(name: string): Field | null {
   const base = name.replace(/\.[^.]+$/, '')
   const date = base.match(/(20\d{2})[-_]?(0[1-9]|1[0-2])[-_]?([0-2]\d|3[01])(?:[-_ T]?([01]\d|2[0-3])[-_.]?([0-5]\d)[-_.]?([0-5]\d))?/)
-  const words = /[A-Za-z]{3,}/.test(base.replace(/^(IMG|DSC|PXL|VID|MVIMG|Screenshot|Screen Shot|Photo|image|scan)/i, ''))
+  const words = /[A-Za-z]{4,}/.test(base.replace(/(?<![A-Za-z])(IMG|DSC|DSCN|PXL|VID|MVIMG|Screenshot|Screen Shot|Photo|image|scan|copy|edit|edited|final|untitled|document|export)(?![A-Za-z])/gi, ''))
   if (!date && !words) return null
   return {
     key: 'file.name',

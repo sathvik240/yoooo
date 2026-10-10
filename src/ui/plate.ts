@@ -5,6 +5,8 @@ import { familyOf, FriendlyError, type CleanResult, type FileFamily, type Findin
 import { formatBytes, isIdentifying } from '../lib/fields'
 import { readImage, cleanImage } from '../lib/imageHandler'
 import { sleep } from '../lib/motion'
+import { ContourMap } from './contour'
+import { liftWordmarkPin } from './wordmark'
 
 export type PlateState = 'reading' | 'ready' | 'cleaning' | 'clean' | 'unverified' | 'error'
 
@@ -27,6 +29,7 @@ export class Plate {
   result?: CleanResult
   private urls: string[] = []
   private ledger?: Ledger
+  private map?: ContourMap
   private stage: HTMLElement
   private ledgerSlot: HTMLElement
   private actions: HTMLElement
@@ -87,14 +90,27 @@ export class Plate {
       this.renderStage()
       this.renderFindings()
       this.setState('ready')
-      await this.ledger!.reveal()
+      await Promise.all([this.ledger!.reveal(), this.map?.reveal()])
     } catch (err) {
       this.fail(err)
     }
   }
 
   private renderStage() {
-    this.stage.replaceChildren(h('img.stage-photo', { src: this.url(this.file), alt: 'Your photo', decoding: 'async' }))
+    const img = this.findings?.image
+    const photo = h('img.stage-photo', { src: this.url(this.file), alt: 'Your photo', decoding: 'async' })
+    // Browsers can't show HEIC; fall back to the embedded preview if there is one.
+    photo.addEventListener('error', () => {
+      if (img?.thumbnail) photo.src = this.url(new Blob([img.thumbnail as BlobPart], { type: 'image/jpeg' }))
+      else photo.replaceWith(h('p.stage-nopreview', 'Preview not available in this browser'))
+    }, { once: true })
+    if (img?.gps) {
+      this.map = new ContourMap(img.gps.latitude, img.gps.longitude, img.gps.altitude)
+      this.stage.classList.add('has-map')
+      this.stage.replaceChildren(this.map.el, h('div.stage-inset', photo))
+    } else {
+      this.stage.replaceChildren(photo, h('p.stage-tag', 'No location in this file'))
+    }
   }
 
   private renderFindings() {
@@ -108,6 +124,10 @@ export class Plate {
       : 'No hidden information found. You can still make a clean copy.'
     this.ledger = new Ledger(f.fields, { emptyText: 'Nothing hidden in this file.' })
     this.ledgerSlot.replaceChildren(this.ledger.el)
+    const thumbRow = this.ledger.el.querySelector('[data-key="ifd1.thumbnail"] dd')
+    if (thumbRow && f.image?.thumbnail) {
+      thumbRow.append(h('img.thumb-peek', { src: this.url(new Blob([f.image.thumbnail as BlobPart], { type: 'image/jpeg' })), alt: 'The hidden preview image found inside the file' }))
+    }
     for (const n of f.notes) this.ledgerSlot.append(h('p.note', n))
     this.actions.replaceChildren(
       h('button.btn.btn-primary', { type: 'button', onclick: () => this.unpin() }, `Unpin this ${FAMILY_LABEL[this.family].toLowerCase()}`),
@@ -119,11 +139,12 @@ export class Plate {
     this.setState('cleaning')
     this.actions.querySelectorAll('button').forEach((b) => (b.disabled = true))
     try {
-      const [result] = await Promise.all([cleanImage(this.file, this.index), this.ledger!.scrub()])
+      const [result] = await Promise.all([cleanImage(this.file, this.index), this.ledger!.scrub(), this.map?.scrub()])
       this.result = result
       await sleep(150)
       this.renderVerified()
       this.setState(result.verify.clean ? 'clean' : 'unverified')
+      if (result.verify.clean) liftWordmarkPin()
       this.host.announce(result.verify.clean ? `${this.file.name}: verified clean, 0 metadata fields remaining.` : `${this.file.name}: cleaning could not be verified.`)
     } catch (err) {
       this.fail(err)
