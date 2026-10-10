@@ -511,3 +511,143 @@ html.editor-open { overflow: hidden; }
 .cmp-tag-before { left: 10px; }
 .cmp-tag-after { right: 10px; }
 .cmp figcaption { font-size: 0.85rem; color: var(--graphite); }
+
+/* =============================================================== sections */
+.section {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: clamp(64px, 10vw, 140px) var(--gutter);
+  border-top: var(--rule);
+}
+.section-head { display: grid; gap: 14px; max-width: 760px; margin-bottom: clamp(32px, 5vw, 56px); }
+.section-title {
+  font: 700 clamp(2.2rem, 5.6vw, 4.4rem)/0.98 var(--f-display);
+  font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.section-lede { font-size: clamp(1.05rem, 1.5vw, 1.25rem); color: var(--graphite); max-width: 52ch; }
+
+/* ============================================================== checklist */
+.plate-check { margin-top: clamp(28px, 4vw, 40px); }
+.checklist { border: var(--rule); background: var(--paper); }
+.check-summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  list-style: none;
+}
+.check-summary::-webkit-details-marker { display: none; }
+.check-summary::after { content: '+'; font: 400 1.4rem/1 var(--f-mono); }
+.checklist[open] .check-summary::after { content: '\2212'; }
+.check-heading { font: 650 1.25rem/1.2 var(--f-display); font-variation-settings: 'opsz' 36, 'SOFT' 50; margin-right: auto; }
+.check-progress { font: 500 0.78rem var(--f-mono); color: var(--graphite); }
+.checklist.all-done .check-progress { color: var(--cleared); }
+.check-intro { padding: 0 20px 14px; color: var(--graphite); font-size: 0.95rem; max-width: 70ch; }
+.check-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); border-top: var(--hair); }
+.check-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 20px;
+  border-bottom: var(--hair);
+  border-right: var(--hair);
+}
+.check-box {
+  appearance: none;
+  width: 22px; height: 22px; margin: 2px 0 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  background: var(--paper);
+  transition: background-color 150ms;
+}
+.check-box::after { content: ''; width: 11px; height: 6px; border: solid var(--paper); border-width: 0 0 2px 2px; transform: rotate(-45deg) translate(1px, -1px) scale(0); transition: transform 200ms var(--ease-drop); }
+.check-box:checked { background: var(--cleared); border-color: var(--cleared); }
+.check-box:checked::after { transform: rotate(-45deg) translate(1px, -1px) scale(1); }
+.check-label { display: grid; gap: 4px; cursor: pointer; }
+.check-title { font-weight: 620; line-height: 1.3; }
+.check-detail { font-size: 0.88rem; color: var(--graphite); line-height: 1.45; }
+.check-box:checked + .check-label .check-title { color: var(--graphite); }
+.check-redact {
+  min-height: 36px; padding: 0 12px;
+  font: 600 0.78rem var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase;
+  background: none; border: 1px solid var(--ink); border-radius: 2px; cursor: pointer;
+}
+.check-redact:hover { background: var(--ink); color: var(--paper); }
+.check-done { display: none; padding: 14px 20px; color: var(--cleared); font-weight: 600; }
+.checklist.all-done .check-done { display: block; }
+
+/* ================================================================ scanner */
+.scanner { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+.scan-field { display: grid; gap: 12px; }
+.scan-editor { position: relative; border: 1.5px solid var(--ink); background: var(--paper); }
+.scan-input, .scan-backdrop {
+  font: 1.08rem/1.6 var(--f-body);
+  padding: 18px 20px;
+  margin: 0;
+  border: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  letter-spacing: normal;
+}
+.scan-backdrop {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+.scan-input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  background: transparent;
+  color: var(--ink);
+  caret-color: var(--pin);
+}
+.scan-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.scan-input::placeholder { color: var(--graphite); }
+.hl { color: transparent; border-radius: 1px; background: color-mix(in srgb, var(--pin) 22%, transparent); box-shadow: inset 0 -2px 0 var(--pin); transition: background-color 150ms; }
+.hl.conf-possible { background: color-mix(in srgb, var(--ink) 9%, transparent); box-shadow: inset 0 -2px 0 var(--graphite); }
+.hl.active { background: color-mix(in srgb, var(--pin) 45%, transparent); }
+.scan-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.scan-count { font: 500 0.82rem var(--f-mono); margin-left: auto; }
+.scan-help { font-size: 0.85rem; color: var(--graphite); max-width: 60ch; }
+.scan-empty { color: var(--graphite); padding: 18px 0; border-top: var(--rule); }
+.scan-list { list-style: none; border-top: var(--rule); }
+.scan-item { padding: 14px 0 16px; border-bottom: var(--hair); display: grid; gap: 6px; cursor: pointer; }
+.scan-item:focus-visible { outline-offset: -2px; }
+.scan-item-head { display: flex; gap: 8px; align-items: center; }
+.chip { font: 600 0.7rem/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 8px; border: 1px solid var(--ink); }
+.chip-email, .chip-phone, .chip-address, .chip-postcode, .chip-birthday { background: var(--ink); color: var(--paper); }
+.chip-realtime, .chip-away { border-color: var(--pin-ink); color: var(--pin-ink); }
+.maybe { font: 0.72rem var(--f-mono); color: var(--graphite); }
+.scan-quote { font: 500 1.05rem/1.35 var(--f-display); font-variation-settings: 'opsz' 24; overflow-wrap: anywhere; }
+.scan-why { font-size: 0.9rem; color: var(--graphite); }
+
+/* ================================================================= limits */
+.limits-list { list-style: none; counter-reset: lim; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); border-top: var(--rule); }
+.limits-list li {
+  counter-increment: lim;
+  padding: 28px 28px 32px 0;
+  border-bottom: var(--hair);
+  display: grid; gap: 10px; align-content: start;
+}
+.limits-list li::before { content: counter(lim, decimal-leading-zero); font: 500 0.78rem var(--f-mono); color: var(--pin-ink); letter-spacing: 0.08em; }
+.limits-list h3 { font: 650 1.3rem/1.2 var(--f-display); font-variation-settings: 'opsz' 36, 'SOFT' 50; }
+.limits-list p { color: var(--graphite); max-width: 46ch; }
+
+@media (max-width: 860px) {
+  .scanner { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .check-item { grid-template-columns: auto minmax(0, 1fr); padding: 14px 16px; }
+  .check-redact { grid-column: 2; justify-self: start; }
+  .limits-list li { padding-right: 0; }
+}

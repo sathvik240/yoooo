@@ -97,6 +97,17 @@ async function run(viewport, label) {
   const [download] = await Promise.all([page.waitForEvent('download'), plate.getByRole('link', { name: /Download unpinned-1/ }).click()])
   check(download.suggestedFilename() === 'unpinned-1.jpg', `download is named ${download.suggestedFilename()}`)
 
+  // Checklist + caption scanner
+  check(await plate.locator('.checklist').isVisible(), 'check-before-you-post panel is shown with the file')
+  await plate.locator('.check-box').first().check()
+  check((await plate.locator('.check-progress').innerText()) === '1 of 7', 'checklist items can be ticked')
+  await page.locator('#caption').scrollIntoViewIfNeeded()
+  await page.getByRole('button', { name: 'Try an example' }).click()
+  const items = await page.locator('.scan-item').count()
+  check(items >= 6, `caption scanner flags the example (${items} findings)`)
+  if (SHOTS) await page.locator('#caption').screenshot({ path: `${shotDir}/${label}-4-caption.png` })
+  if (SHOTS) await page.locator('#limits').screenshot({ path: `${shotDir}/${label}-5-limits.png` })
+
   const foreign = requests.filter((r) => !r.url.startsWith(ORIGIN) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
   check(foreign.length === 0, `no requests to other origins (${foreign.map((r) => r.url).join(', ') || 'none'})`)
   const during = requests.slice(before).filter((r) => !r.url.startsWith('blob:') && !r.url.startsWith('data:'))

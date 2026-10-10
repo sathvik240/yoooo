@@ -5,6 +5,7 @@ import { h, $ } from './ui/dom'
 import { dropzone } from './ui/dropzone'
 import { Plate, type PlateHost } from './ui/plate'
 import { wordmark } from './ui/wordmark'
+import { scannerPanel } from './ui/scannerPanel'
 
 const app = $('#app')!
 
@@ -27,6 +28,29 @@ app.innerHTML = /* html */ `
     <section class="plates-section" aria-label="Your files" hidden>
       <div class="batchbar" role="toolbar" aria-label="All files"></div>
       <div class="plates"></div>
+    </section>
+    <section class="section caption" id="caption" aria-labelledby="caption-title">
+      <header class="section-head">
+        <p class="eyebrow">02 — Before you hit post</p>
+        <h2 id="caption-title" class="section-title">Words give you away too.</h2>
+        <p class="section-lede">Paste your caption or bio. Unpin highlights the details that help a stranger find you, and says why.</p>
+      </header>
+      <div class="caption-slot"></div>
+    </section>
+    <section class="section limits" id="limits" aria-labelledby="limits-title">
+      <header class="section-head">
+        <p class="eyebrow">03 — Straight talk</p>
+        <h2 id="limits-title" class="section-title">What Unpin can’t protect you from.</h2>
+        <p class="section-lede">Removing metadata closes one door. These stay open, and it’s better you know.</p>
+      </header>
+      <ol class="limits-list">
+        <li><h3>What’s visible in the picture</h3><p>Faces, signs, reflections, the view from your window. That’s what the checklist and the redaction brush are for.</p></li>
+        <li><h3>Your IP address and device fingerprint</h3><p>When you upload or post anywhere, that site sees your network address and details about your browser and device. Unpin never connects to anything, but the place you post to does.</p></li>
+        <li><h3>Accounts that link you</h3><p>Reused usernames, reused profile photos, the same email everywhere, and even your writing style can connect accounts you meant to keep apart.</p></li>
+        <li><h3>Records that already exist</h3><p>Data brokers, people-search sites, public records and domain WHOIS entries may already list your name and address. Unpin can’t remove those, but <a href="./beyond.html">Beyond files</a> shows where to start.</p></li>
+        <li><h3>Other people</h3><p>Friends and family can tag you, check you in, or post the same moment with their location on.</p></li>
+        <li><h3>Platforms</h3><p>Some sites re-compress your upload or add their own metadata, and many keep the original you sent them. A clean file is a better file to send, not a guarantee about what happens next.</p></li>
+      </ol>
     </section>
   </main>
   <footer class="footer">
@@ -85,3 +109,4 @@ async function unpinAll() {
 }
 
 $('.drop-slot')!.append(dropzone(addFiles))
+$('.caption-slot')!.append(scannerPanel())

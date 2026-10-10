@@ -9,6 +9,7 @@ import { ContourMap } from './contour'
 import { liftWordmarkPin } from './wordmark'
 import { openEditor } from './editor'
 import { compareSlider } from './compare'
+import { checklist, PHOTO_CHECKS } from './checklist'
 import { decode } from '../lib/encode'
 import { heicToDecodable } from '../lib/strip'
 import { renderRedacted, type Stroke } from '../lib/redact'
@@ -38,6 +39,7 @@ export class Plate {
   private strokes: Stroke[] = []
   private photoEls: HTMLImageElement[] = []
   private compareSlot: HTMLElement
+  private checkSlot: HTMLElement
   private redactNote: HTMLElement
   private stage: HTMLElement
   private ledgerSlot: HTMLElement
@@ -59,6 +61,7 @@ export class Plate {
     this.summary = h('p.plate-summary')
     this.status = h('p.plate-status', 'Reading…')
     this.compareSlot = h('div.plate-compare')
+    this.checkSlot = h('div.plate-check')
     this.redactNote = h('p.redact-note', { hidden: true })
     this.el = h(
       'article.plate',
@@ -72,6 +75,7 @@ export class Plate {
       ),
       h('div.plate-grid', this.stage, h('div.plate-side', this.summary, this.status, this.ledgerSlot, this.redactNote, this.verifySlot, this.actions)),
       this.compareSlot,
+      this.checkSlot,
     )
   }
 
@@ -143,6 +147,18 @@ export class Plate {
     }
     for (const n of f.notes) this.ledgerSlot.append(h('p.note', n))
     this.renderReadyActions()
+    this.renderChecklist()
+  }
+
+  /** "Check before you post": shown with every file. */
+  protected renderChecklist() {
+    if (this.family !== 'image') return
+    this.checkSlot.replaceChildren(checklist(PHOTO_CHECKS, {
+      title: 'Check before you post',
+      intro: 'Stripping metadata can’t change what’s visible in the picture. A quick look for these usually takes ten seconds.',
+      onRedact: () => this.redact(),
+      idPrefix: `p${this.index}`,
+    }))
   }
 
   private renderReadyActions() {
