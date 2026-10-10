@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { decode, encodeBitmap, type OutputType } from '../lib/encode'
+import { renderRedacted, type Stroke } from '../lib/redact'
 
 export interface StripRequest {
   id: number
@@ -7,6 +8,8 @@ export interface StripRequest {
   source: Blob | ImageBitmap
   type: OutputType
   quality?: number
+  /** Redaction strokes to bake into the pixels before encoding. */
+  strokes?: Stroke[]
 }
 
 export type StripResponse =
@@ -14,9 +17,10 @@ export type StripResponse =
   | { id: number; ok: false; error: string; decode: boolean }
 
 self.onmessage = async (e: MessageEvent<StripRequest>) => {
-  const { id, source, type, quality } = e.data
+  const { id, source, type, quality, strokes } = e.data
   try {
-    const bitmap = source instanceof Blob ? await decode(source) : source
+    let bitmap = source instanceof Blob ? await decode(source) : source
+    if (strokes?.length) bitmap = await redact(bitmap, strokes)
     const { width, height } = bitmap
     const blob = await encodeBitmap(bitmap, { type, quality })
     bitmap.close()
@@ -25,4 +29,10 @@ self.onmessage = async (e: MessageEvent<StripRequest>) => {
     const message = err instanceof Error ? err.message : String(err)
     ;(self as unknown as Worker).postMessage({ id, ok: false, error: message, decode: err instanceof Error && err.name === 'DecodeError' } satisfies StripResponse)
   }
+}
+
+async function redact(bitmap: ImageBitmap, strokes: Stroke[]): Promise<ImageBitmap> {
+  const canvas = renderRedacted(bitmap, bitmap.width, bitmap.height, strokes) as OffscreenCanvas
+  bitmap.close()
+  return canvas.transferToImageBitmap()
 }

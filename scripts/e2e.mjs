@@ -62,11 +62,37 @@ async function run(viewport, label) {
   check(/Pixelphone 9 Pro/.test(ledgerText), 'ledger shows the phone model')
   check(/SN-48151623/.test(ledgerText), 'ledger shows the serial number')
 
+  // Redaction brush: one mouse stroke, then one simulated pen stroke whose
+  // pressure ramps up (pointerType 'pen' + pressure, like a Wacom tablet).
+  await plate.getByRole('button', { name: 'Redact areas' }).click()
+  const canvas = page.locator('.editor-canvas')
+  await canvas.waitFor()
+  const box = await canvas.boundingBox()
+  await page.getByRole('radio', { name: /Cover/ }).click()
+  await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.3)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.35, { steps: 12 })
+  await page.mouse.up()
+  await page.getByRole('radio', { name: /Pixelate/ }).click()
+  await canvas.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const fire = (type, i, p) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: 'pen', isPrimary: true, pressure: p, buttons: type === 'pointerup' ? 0 : 1, clientX: r.left + r.width * (0.55 + i * 0.02), clientY: r.top + r.height * (0.7 - i * 0.015) }))
+    fire('pointerdown', 0, 0.1)
+    for (let i = 1; i <= 15; i++) fire('pointermove', i, 0.1 + i * 0.06)
+    fire('pointerup', 15, 0)
+  })
+  check((await page.locator('.editor-count').innerText()) === '2 strokes', 'editor recorded a mouse stroke and a pen stroke')
+  check(/Pen pressure \d+%/.test(await page.locator('.pressure-label').innerText()), 'pen pressure is read and shown')
+  if (SHOTS) await page.screenshot({ path: `${shotDir}/${label}-2b-editor.png` })
+  await page.getByRole('button', { name: 'Apply' }).click()
+  await plate.locator('.redact-note').waitFor()
+
   await plate.getByRole('button', { name: /^Unpin this/ }).click()
   await plate.locator('.stamp').waitFor({ timeout: 15000 })
   await page.waitForTimeout(800)
   if (SHOTS) await plate.screenshot({ path: `${shotDir}/${label}-3-verified.png` })
   check((await plate.locator('.stamp').innerText()).includes('0 METADATA FIELDS REMAINING'), 'verified stamp says 0 fields remaining')
+  check(await plate.locator('.cmp').isVisible(), 'before/after slider shown for the redacted photo')
 
   const [download] = await Promise.all([page.waitForEvent('download'), plate.getByRole('link', { name: /Download unpinned-1/ }).click()])
   check(download.suggestedFilename() === 'unpinned-1.jpg', `download is named ${download.suggestedFilename()}`)

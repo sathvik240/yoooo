@@ -4,6 +4,7 @@ import { verifyImage, type VerifyResult } from './imageMeta'
 import { sniff, storedDimensions } from './containers'
 import type { StripRequest, StripResponse } from '../workers/strip.worker'
 import { FriendlyError } from './handlers'
+import { renderRedacted, type Stroke } from './redact'
 
 export interface StripResult {
   blob: Blob
@@ -47,8 +48,13 @@ function getWorker(): Worker | null {
   return worker
 }
 
-async function encodeOnMainThread(source: Blob | ImageBitmap, type: OutputType, quality?: number) {
-  const bitmap = source instanceof Blob ? await decode(source) : source
+async function encodeOnMainThread(source: Blob | ImageBitmap, type: OutputType, quality?: number, strokes?: Stroke[]) {
+  let bitmap = source instanceof Blob ? await decode(source) : source
+  if (strokes?.length) {
+    const canvas = renderRedacted(bitmap, bitmap.width, bitmap.height, strokes)
+    bitmap.close()
+    bitmap = await createImageBitmap(canvas)
+  }
   const { width, height } = bitmap
   const blob = await encodeBitmap(bitmap, { type, quality })
   bitmap.close()
@@ -57,18 +63,18 @@ async function encodeOnMainThread(source: Blob | ImageBitmap, type: OutputType, 
 
 export const usingWorker = () => getWorker() !== null
 
-async function encode(source: Blob | ImageBitmap, type: OutputType, quality?: number) {
+async function encode(source: Blob | ImageBitmap, type: OutputType, quality?: number, strokes?: Stroke[]) {
   const w = getWorker()
-  if (!w) return encodeOnMainThread(source, type, quality)
+  if (!w) return encodeOnMainThread(source, type, quality, strokes)
   const id = nextId++
   const res = await new Promise<StripResponse>((resolve) => {
     pending.set(id, resolve)
-    const msg: StripRequest = { id, source, type, quality }
+    const msg: StripRequest = { id, source, type, quality, strokes }
     w.postMessage(msg, source instanceof ImageBitmap ? [source] : [])
   })
   if (res.ok) return { blob: res.blob, width: res.width, height: res.height }
   if (res.decode) throw new DecodeError(res.error)
-  if (res.error === 'worker failed' && !(source instanceof ImageBitmap)) return encodeOnMainThread(source, type, quality)
+  if (res.error === 'worker failed' && !(source instanceof ImageBitmap)) return encodeOnMainThread(source, type, quality, strokes)
   throw new Error(res.error)
 }
 
@@ -79,6 +85,8 @@ export interface StripOptions {
   index: number
   /** Redacted pixels to encode instead of the original file. */
   pixels?: ImageBitmap
+  /** Redaction strokes, baked in (in the worker) before encoding. */
+  strokes?: Stroke[]
   quality?: number
 }
 
@@ -101,7 +109,7 @@ export async function stripImage(file: Blob, opts: StripOptions): Promise<StripR
   const wanted = outputTypeFor(mime)
   let result: { blob: Blob; width: number; height: number }
   try {
-    result = await encode(opts.pixels ?? source, wanted, opts.quality)
+    result = await encode(opts.pixels ?? source, wanted, opts.quality, opts.strokes)
   } catch (err) {
     if (err instanceof DecodeError) {
       throw new StripError(
@@ -117,7 +125,7 @@ export async function stripImage(file: Blob, opts: StripOptions): Promise<StripR
 
   // Safety net for engines that ignore imageOrientation: if EXIF said "rotate
   // 90°" but the decoded size matches the stored size, rotate it ourselves.
-  if (!opts.pixels && kind === 'jpeg') {
+  if (!opts.pixels && !opts.strokes?.length && kind === 'jpeg') {
     result = await fixOrientationIfIgnored(file, result, wanted, opts.quality)
   }
 
@@ -154,7 +162,7 @@ async function fixOrientationIfIgnored(file: Blob, result: { blob: Blob; width: 
 }
 
 /** Lazy-load the HEIC decoder only when someone actually picks a HEIC file. */
-async function heicToDecodable(file: Blob): Promise<Blob> {
+export async function heicToDecodable(file: Blob): Promise<Blob> {
   // Safari decodes HEIC natively; try that first and skip the 1 MB download.
   try {
     const bmp = await createImageBitmap(file)

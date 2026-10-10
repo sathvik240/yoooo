@@ -7,6 +7,11 @@ import { readImage, cleanImage } from '../lib/imageHandler'
 import { sleep } from '../lib/motion'
 import { ContourMap } from './contour'
 import { liftWordmarkPin } from './wordmark'
+import { openEditor } from './editor'
+import { compareSlider } from './compare'
+import { decode } from '../lib/encode'
+import { heicToDecodable } from '../lib/strip'
+import { renderRedacted, type Stroke } from '../lib/redact'
 
 export type PlateState = 'reading' | 'ready' | 'cleaning' | 'clean' | 'unverified' | 'error'
 
@@ -30,6 +35,10 @@ export class Plate {
   private urls: string[] = []
   private ledger?: Ledger
   private map?: ContourMap
+  private strokes: Stroke[] = []
+  private photoEls: HTMLImageElement[] = []
+  private compareSlot: HTMLElement
+  private redactNote: HTMLElement
   private stage: HTMLElement
   private ledgerSlot: HTMLElement
   private actions: HTMLElement
@@ -49,6 +58,8 @@ export class Plate {
     this.verifySlot = h('div.plate-verify', { 'aria-live': 'polite' })
     this.summary = h('p.plate-summary')
     this.status = h('p.plate-status', 'Reading…')
+    this.compareSlot = h('div.plate-compare')
+    this.redactNote = h('p.redact-note', { hidden: true })
     this.el = h(
       'article.plate',
       { 'aria-labelledby': `plate-${index}-title`, 'data-state': 'reading' },
@@ -59,7 +70,8 @@ export class Plate {
         h('p.plate-meta', formatBytes(file.size)),
         h('button.plate-remove', { type: 'button', 'aria-label': `Remove ${file.name}`, onclick: () => this.host.remove(this) }, '×'),
       ),
-      h('div.plate-grid', this.stage, h('div.plate-side', this.summary, this.status, this.ledgerSlot, this.verifySlot, this.actions)),
+      h('div.plate-grid', this.stage, h('div.plate-side', this.summary, this.status, this.ledgerSlot, this.redactNote, this.verifySlot, this.actions)),
+      this.compareSlot,
     )
   }
 
@@ -99,6 +111,7 @@ export class Plate {
   private renderStage() {
     const img = this.findings?.image
     const photo = h('img.stage-photo', { src: this.url(this.file), alt: 'Your photo', decoding: 'async' })
+    this.photoEls.push(photo)
     // Browsers can't show HEIC; fall back to the embedded preview if there is one.
     photo.addEventListener('error', () => {
       if (img?.thumbnail) photo.src = this.url(new Blob([img.thumbnail as BlobPart], { type: 'image/jpeg' }))
@@ -129,9 +142,58 @@ export class Plate {
       thumbRow.append(h('img.thumb-peek', { src: this.url(new Blob([f.image.thumbnail as BlobPart], { type: 'image/jpeg' })), alt: 'The hidden preview image found inside the file' }))
     }
     for (const n of f.notes) this.ledgerSlot.append(h('p.note', n))
-    this.actions.replaceChildren(
-      h('button.btn.btn-primary', { type: 'button', onclick: () => this.unpin() }, `Unpin this ${FAMILY_LABEL[this.family].toLowerCase()}`),
-    )
+    this.renderReadyActions()
+  }
+
+  private renderReadyActions() {
+    this.actions.replaceChildren(h('button.btn.btn-primary', { type: 'button', onclick: () => this.unpin() }, `Unpin this ${FAMILY_LABEL[this.family].toLowerCase()}`))
+    if (this.family === 'image') this.actions.append(h('button.btn.btn-ghost', { type: 'button', onclick: () => this.redact() }, this.strokes.length ? 'Edit redactions' : 'Redact areas'))
+  }
+
+  /** Open the brush editor. Also reachable from the checklist. */
+  async redact(): Promise<void> {
+    if (this.family !== 'image' || !['ready', 'clean', 'unverified'].includes(this.state)) return
+    let bitmap: ImageBitmap
+    try {
+      bitmap = await decode(await heicToDecodable(this.file))
+    } catch (err) {
+      this.fail(err)
+      return
+    }
+    const result = await openEditor(bitmap, this.strokes)
+    if (!result) {
+      bitmap.close()
+      return
+    }
+    this.strokes = result
+    // Show the redacted version in the plate so it's obvious what will ship.
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+    const w = Math.round(bitmap.width * scale), h2 = Math.round(bitmap.height * scale)
+    const canvas = document.createElement('canvas')
+    renderRedacted(bitmap, w, h2, this.strokes, canvas)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.85))
+    if (blob) {
+      const u = this.url(blob)
+      for (const img of this.photoEls) img.src = u
+    }
+    const n = this.strokes.length
+    this.redactNote.hidden = !n
+    this.redactNote.textContent = n ? `${n} redaction${n === 1 ? '' : 's'} will be baked into the clean copy.` : ''
+    if (this.state === 'ready') this.renderReadyActions()
+    else await this.reclean()
+  }
+
+  /** After editing redactions on an already-clean file, re-export quietly. */
+  private async reclean() {
+    this.setState('cleaning')
+    try {
+      this.result = await cleanImage(this.file, this.index, this.strokes)
+      this.renderVerified()
+      this.setState(this.result.verify.clean ? 'clean' : 'unverified')
+    } catch (err) {
+      this.fail(err)
+    }
   }
 
   async unpin(): Promise<void> {
@@ -139,7 +201,7 @@ export class Plate {
     this.setState('cleaning')
     this.actions.querySelectorAll('button').forEach((b) => (b.disabled = true))
     try {
-      const [result] = await Promise.all([cleanImage(this.file, this.index), this.ledger!.scrub(), this.map?.scrub()])
+      const [result] = await Promise.all([cleanImage(this.file, this.index, this.strokes), this.ledger!.scrub(), this.map?.scrub()])
       this.result = result
       await sleep(150)
       this.renderVerified()
@@ -171,7 +233,10 @@ export class Plate {
       download.textContent = `Download anyway (not fully clean)`
       download.classList.replace('btn-primary', 'btn-ghost')
     }
-    this.actions.replaceChildren(download)
+    this.actions.replaceChildren(download, h('button.btn.btn-ghost', { type: 'button', onclick: () => this.redact() }, this.strokes.length ? 'Edit redactions' : 'Redact areas'))
+    this.redactNote.textContent = this.strokes.length ? `${this.strokes.length} redaction${this.strokes.length === 1 ? '' : 's'} baked into the pixels.` : ''
+    this.compareSlot.replaceChildren()
+    if (this.strokes.length) this.compareSlot.append(compareSlider(this.url(this.file), this.url(r.blob)))
   }
 
   private fail(err: unknown) {

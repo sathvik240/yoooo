@@ -3,6 +3,7 @@ import { stripImage } from './strip'
 import { ContainerError } from './containers'
 import { FriendlyError, filenameFinding, type CleanResult, type Findings } from './handlers'
 import { sortFields } from './fields'
+import type { Stroke } from './redact'
 
 export async function readImage(file: File): Promise<Findings> {
   const bytes = new Uint8Array(await file.arrayBuffer())
@@ -26,8 +27,8 @@ export async function readImage(file: File): Promise<Findings> {
   return { fields: sortFields(fields), image, notes }
 }
 
-export async function cleanImage(file: File, index: number, pixels?: ImageBitmap): Promise<CleanResult> {
-  const res = await stripImage(file, { index, pixels })
+export async function cleanImage(file: File, index: number, strokes?: Stroke[]): Promise<CleanResult> {
+  const res = await stripImage(file, { index, strokes })
   return {
     blob: res.blob,
     name: res.name,
