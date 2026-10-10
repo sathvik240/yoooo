@@ -2,7 +2,7 @@ export async function fixture(name: string): Promise<File> {
   const res = await fetch(new URL(`../fixtures/${name}`, import.meta.url))
   if (!res.ok) throw new Error(`fixture ${name}: ${res.status}`)
   const blob = await res.blob()
-  const type = name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : name.endsWith('.jpg') ? 'image/jpeg' : blob.type
+  const type = name.endsWith('.heic') ? 'image/heic' : name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : name.endsWith('.jpg') ? 'image/jpeg' : blob.type
   return new File([blob], name, { type })
 }
 

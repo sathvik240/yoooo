@@ -101,7 +101,23 @@ function renderBatchbar() {
   platesSection.hidden = plates.length === 0
   const ready = plates.filter((p) => p.state === 'ready')
   batchbar.replaceChildren(h('p.batch-count', `${plates.length} file${plates.length === 1 ? '' : 's'}`))
-  if (ready.length > 1) batchbar.append(h('button.btn.btn-ghost', { type: 'button', onclick: unpinAll }, `Unpin all ${ready.length}`))
+  if (ready.length > 1) batchbar.append(h('button.btn.btn-ghost.btn-small', { type: 'button', onclick: unpinAll }, `Unpin all ${ready.length}`))
+  const done = plates.filter((p) => p.result && (p.state === 'clean' || p.state === 'unverified'))
+  if (done.length > 1) {
+    const allClean = done.every((p) => p.state === 'clean')
+    batchbar.append(h('button.btn.btn-primary.btn-small', { type: 'button', onclick: () => downloadZip(done) }, `Download ${done.length} as ZIP${allClean ? '' : ' (some not verified)'}`))
+  }
+}
+
+async function downloadZip(list: Plate[]) {
+  const { zipFiles } = await import('./lib/zip')
+  const blob = await zipFiles(list.map((p) => ({ name: p.result!.name, blob: p.result!.blob })))
+  const url = URL.createObjectURL(blob)
+  const a = h('a', { href: url, download: 'unpinned.zip' })
+  document.body.append(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 async function unpinAll() {

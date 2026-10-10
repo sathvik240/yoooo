@@ -117,7 +117,34 @@ async function run(viewport, label) {
   await ctx.close()
 }
 
+async function batch() {
+  console.log('\nbatch + HEIC (1280x800)')
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true })
+  const page = await ctx.newPage()
+  const requests = []
+  const errors = []
+  page.on('request', (r) => requests.push(r.url()))
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+  await page.setInputFiles('#file-input', [fx('gps.heic'), fx('rotated.jpg'), fx('meta.webp')])
+  await page.waitForFunction(() => document.querySelectorAll('.plate[data-state="ready"]').length === 3, null, { timeout: 20000 })
+  await page.getByRole('button', { name: /Unpin all 3/ }).click()
+  await page.waitForFunction(() => document.querySelectorAll('.plate[data-state="clean"], .plate[data-state="error"], .plate[data-state="unverified"]').length === 3, null, { timeout: 30000 }).catch(() => {})
+  const states = await page.$$eval('.plate', (els) => els.map((e) => `${e.querySelector('.plate-title').textContent}=${e.dataset.state}${e.dataset.state !== 'clean' ? ' (' + e.querySelector('.plate-verify')?.textContent + ')' : ''}`))
+  check(states.every((x) => x.endsWith('=clean')), `HEIC, rotated JPEG and WebP all verified clean: ${states.join(', ')}`)
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Download 3 as ZIP/ }).click()])
+  check(download.suggestedFilename() === 'unpinned.zip', 'batch downloads as unpinned.zip')
+  const foreign = requests.filter((u) => !u.startsWith(ORIGIN) && !u.startsWith('blob:') && !u.startsWith('data:'))
+  check(foreign.length === 0, 'no requests to other origins')
+  check(requests.some((u) => /libheif/.test(u)), 'HEIC decoder was lazy-loaded from this site')
+  console.log('    errors:', errors.slice(0, 3).map((e) => e.slice(0, 300)))
+  check(errors.length === 0, `no console errors (CSP ok)${errors.length ? ': ' + errors.join(' | ') : ''}`)
+  await ctx.close()
+}
+
 try {
+  await batch()
   await run({ width: 1440, height: 900 }, 'desktop')
   await run({ width: 390, height: 844 }, 'phone')
 } finally {

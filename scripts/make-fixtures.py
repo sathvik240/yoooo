@@ -147,6 +147,14 @@ shot.save(OUT / "screenshot.png", "PNG", optimize=True)
 # 7. Corrupt "JPEG": a valid start marker followed by junk, then cut off.
 (OUT / "corrupt.jpg").write_bytes(b"\xFF\xD8\xFF\xE0" + bytes(range(256)) * 3)
 
+# 8. HEIC (iPhone default format) with EXIF + GPS. Needs pillow-heif.
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+    photo(64, 48).save(OUT / "gps.heic", "HEIF", quality=90, exif=exif_bytes(with_thumb=False))
+except ImportError:
+    print("pillow-heif not installed; skipping gps.heic")
+
 print("fixtures written to", OUT)
 for p in sorted(OUT.iterdir()):
     print(f"  {p.name:16} {p.stat().st_size:>8} bytes")

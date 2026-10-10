@@ -10,8 +10,7 @@ import { liftWordmarkPin } from './wordmark'
 import { openEditor } from './editor'
 import { compareSlider } from './compare'
 import { checklist, PHOTO_CHECKS } from './checklist'
-import { decode } from '../lib/encode'
-import { heicToDecodable } from '../lib/strip'
+import { decodeAny } from '../lib/strip'
 import { renderRedacted, type Stroke } from '../lib/redact'
 
 export type PlateState = 'reading' | 'ready' | 'cleaning' | 'clean' | 'unverified' | 'error'
@@ -117,9 +116,22 @@ export class Plate {
     const photo = h('img.stage-photo', { src: this.url(this.file), alt: 'Your photo', decoding: 'async' })
     this.photoEls.push(photo)
     // Browsers can't show HEIC; fall back to the embedded preview if there is one.
-    photo.addEventListener('error', () => {
-      if (img?.thumbnail) photo.src = this.url(new Blob([img.thumbnail as BlobPart], { type: 'image/jpeg' }))
-      else photo.replaceWith(h('p.stage-nopreview', 'Preview not available in this browser'))
+    photo.addEventListener('error', async () => {
+      // Browsers other than Safari can't show HEIC: decode it ourselves.
+      try {
+        const bmp = await decodeAny(this.file)
+        const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height))
+        const c = document.createElement('canvas')
+        c.width = Math.round(bmp.width * scale)
+        c.height = Math.round(bmp.height * scale)
+        c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height)
+        bmp.close()
+        const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.85))
+        if (blob) photo.src = this.url(blob)
+      } catch {
+        if (img?.thumbnail) photo.src = this.url(new Blob([img.thumbnail as BlobPart], { type: 'image/jpeg' }))
+        else photo.replaceWith(h('p.stage-nopreview', 'Preview not available in this browser'))
+      }
     }, { once: true })
     if (img?.gps) {
       this.map = new ContourMap(img.gps.latitude, img.gps.longitude, img.gps.altitude)
@@ -171,7 +183,7 @@ export class Plate {
     if (this.family !== 'image' || !['ready', 'clean', 'unverified'].includes(this.state)) return
     let bitmap: ImageBitmap
     try {
-      bitmap = await decode(await heicToDecodable(this.file))
+      bitmap = await decodeAny(this.file)
     } catch (err) {
       this.fail(err)
       return

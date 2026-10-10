@@ -98,11 +98,11 @@ export async function stripImage(file: Blob, opts: StripOptions): Promise<StripR
   const t0 = performance.now()
   const head = new Uint8Array(await file.slice(0, 64).arrayBuffer())
   const kind = sniff(head)
-  let source: Blob = file
+  let source: Blob | ImageBitmap = file
   let mime = file.type || mimeFromKind(kind)
 
   if (kind === 'heic' || kind === 'avif' || mime === 'image/heic' || mime === 'image/heif') {
-    if (!opts.pixels) source = await heicToDecodable(file)
+    if (!opts.pixels) source = await heicBitmap(file)
     mime = 'image/jpeg'
   }
 
@@ -161,24 +161,22 @@ async function fixOrientationIfIgnored(file: Blob, result: { blob: Blob; width: 
   return encodeOnMainThread(rotated, type, quality)
 }
 
-/** Lazy-load the HEIC decoder only when someone actually picks a HEIC file. */
-export async function heicToDecodable(file: Blob): Promise<Blob> {
-  // Safari decodes HEIC natively; try that first and skip the 1 MB download.
+/** Decode any supported image (HEIC via the lazily loaded decoder) with orientation applied. */
+export async function decodeAny(file: Blob): Promise<ImageBitmap> {
+  const kind = sniff(new Uint8Array(await file.slice(0, 64).arrayBuffer()))
+  if (kind === 'heic' || kind === 'avif') return heicBitmap(file)
+  return decode(file)
+}
+
+async function heicBitmap(file: Blob): Promise<ImageBitmap> {
   try {
-    const bmp = await createImageBitmap(file)
-    bmp.close()
-    return file
-  } catch {
-    /* not supported natively */
-  }
-  try {
-    const { default: heic2any } = await import('heic2any')
-    const out = await heic2any({ blob: file, toType: 'image/png' })
-    return Array.isArray(out) ? out[0] : out
-  } catch {
+    const { decodeHeic } = await import('./heic')
+    return await decodeHeic(file)
+  } catch (err) {
+    console.error(err)
     throw new StripError(
-      'This HEIC photo couldn’t be converted in your browser.',
-      'On iPhone, go to Settings → Camera → Formats and choose “Most Compatible”, or share the photo to yourself as JPEG, then try again.',
+      'This HEIC photo couldn\u2019t be converted in your browser.',
+      'On iPhone, go to Settings \u2192 Camera \u2192 Formats and choose \u201cMost Compatible\u201d, or share the photo to yourself as JPEG, then try again.',
     )
   }
 }

@@ -1,5 +1,6 @@
 import exifr from 'exifr'
 import { scanSegments, sniff, webpMetadataAsJpegShell, isIdentifyingSegment, type FileKind, type Segment, ContainerError } from './containers'
+import { heifItems, heifMetadataAsJpegShell } from './bmff'
 import { toFields, isIdentifying, formatBytes, type Field } from './fields'
 
 export interface ImageReport {
@@ -49,6 +50,15 @@ export async function readImageMetadata(bytes: Uint8Array): Promise<ImageReport>
 
   let source: Uint8Array | null = bytes
   if (kind === 'webp') source = webpMetadataAsJpegShell(bytes)
+  let heifRefs: string[] = []
+  if (kind === 'heic' || kind === 'avif') {
+    source = heifMetadataAsJpegShell(bytes)
+    try {
+      heifRefs = heifItems(bytes)?.refs ?? []
+    } catch {
+      /* not a readable HEIF */
+    }
+  }
   if (kind === 'gif' || kind === 'unknown') source = null
 
   let raw: Record<string, unknown> | undefined
@@ -91,6 +101,13 @@ export async function readImageMetadata(bytes: Uint8Array): Promise<ImageReport>
       risk: 'high',
       why: 'A small copy of the original photo. If you cropped or edited, it can still show what you cut out.',
     })
+  }
+
+  if (heifRefs.includes('thmb')) {
+    fields.push({ key: 'heif.thmb', group: 'other', label: 'Hidden preview image', value: 'HEIC thumbnail', risk: 'high', why: 'A small copy of the original photo. If you cropped or edited, it can still show what you cut out.' })
+  }
+  if (heifRefs.includes('auxl')) {
+    fields.push({ key: 'heif.auxl', group: 'other', label: 'Extra embedded images', value: 'depth map or other auxiliary image', risk: 'medium', why: 'Portrait-mode depth maps and other layers saved alongside the photo.' })
   }
 
   // Segments that exifr doesn't describe but which still leak.
