@@ -7,21 +7,12 @@ import { Plate, type PlateHost } from './ui/plate'
 import { wordmark } from './ui/wordmark'
 import { scannerPanel } from './ui/scannerPanel'
 import { decorativeContours } from './ui/contour'
-import { watchNetwork } from './lib/netwatch'
+import { mastheadHtml, footerHtml, startNetBadge } from './ui/masthead'
 
 const app = $('#app')!
 
 app.innerHTML = /* html */ `
-  <header class="masthead">
-    <a class="masthead-mark" href="./" aria-label="Unpin home">unpin</a>
-    <nav class="masthead-nav" aria-label="Sections">
-      <a href="#clean">Clean<span class="long"> files</span></a>
-      <a href="#caption"><span class="long">Check a </span>caption</a>
-      <a href="#limits"><span class="long">What it can’t do</span><span class="short">Limits</span></a>
-      <a href="./beyond.html">Beyond<span class="long"> files</span></a>
-    </nav>
-    <p class="netbadge" title="Counted by your browser since this page opened"><span class="netdot" aria-hidden="true"></span><span class="netcount">0</span> outside requests</p>
-  </header>
+  ${mastheadHtml('home')}
   <main id="main" tabindex="-1">
     <section class="hero" id="clean" aria-labelledby="hero-title">
       <div class="hero-bg" aria-hidden="true"></div>
@@ -57,18 +48,13 @@ app.innerHTML = /* html */ `
       </ol>
     </section>
   </main>
-  <footer class="footer">
-    <p>Unpin runs entirely in your browser. No uploads, no analytics, no cookies.</p>
-  </footer>
+  ${footerHtml}
   <div class="sr-only" aria-live="polite" id="announcer"></div>
 `
 
 $('.wordmark-wrap')!.append(wordmark())
 $('.hero-bg')!.append(decorativeContours(20240601))
-watchNetwork((n) => {
-  $('.netcount')!.textContent = String(n)
-  document.querySelector('.netbadge')!.classList.toggle('warn', n > 0)
-})
+startNetBadge()
 
 const platesSection = $('.plates-section')!
 const platesEl = $('.plates')!

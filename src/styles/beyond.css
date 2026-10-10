@@ -1,0 +1,77 @@
+/* ============================================================ beyond page */
+.guide-hero {
+  position: relative;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: clamp(48px, 9vw, 120px) var(--gutter) clamp(40px, 6vw, 80px);
+  display: grid;
+  gap: 18px;
+}
+.guide-hero > :not(.guide-bg) { position: relative; z-index: 1; }
+.guide-bg {
+  position: absolute; z-index: 0; inset: 0 calc(-1 * var(--gutter)) 0 40%;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse at 70% 45%, #000 25%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 70% 45%, #000 25%, transparent 70%);
+}
+.guide-title {
+  font: 820 clamp(3.2rem, 11vw, 9rem)/0.86 var(--f-display);
+  font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+  letter-spacing: -0.05em;
+  max-width: 10ch;
+  padding-bottom: 0.14em;
+}
+.guide-body {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--gutter) clamp(64px, 10vw, 120px);
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 96px);
+  border-top: var(--rule);
+}
+.guide-toc { position: sticky; top: 24px; align-self: start; padding-top: 32px; display: grid; gap: 12px; }
+.guide-toc ol { list-style: none; counter-reset: toc; display: grid; gap: 2px; }
+.guide-toc li { counter-increment: toc; }
+.guide-toc a {
+  display: grid; grid-template-columns: 2.4em 1fr; gap: 4px;
+  padding: 7px 0;
+  text-decoration: none;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: var(--graphite);
+  border-bottom: var(--hair);
+}
+.guide-toc a::before { content: counter(toc, decimal-leading-zero); font: 500 0.74rem/1.8 var(--f-mono); color: var(--pin-ink); }
+.guide-toc a:hover { color: var(--ink); }
+.guide-sections { display: grid; }
+.guide-section { padding: 32px 0 44px; border-bottom: var(--hair); display: grid; gap: 14px; max-width: 72ch; scroll-margin-top: 16px; }
+.guide-no { font: 500 0.78rem var(--f-mono); color: var(--pin-ink); letter-spacing: 0.08em; }
+.guide-section h2 {
+  font: 700 clamp(1.6rem, 3vw, 2.3rem)/1.08 var(--f-display);
+  font-variation-settings: 'opsz' 72, 'SOFT' 100, 'WONK' 1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.guide-lede { font-size: 1.1rem; color: var(--graphite); }
+.guide-steps { list-style: none; display: grid; gap: 0; border-top: var(--rule); }
+.guide-steps li {
+  position: relative;
+  padding: 12px 0 12px 28px;
+  border-bottom: var(--hair);
+  line-height: 1.5;
+}
+.guide-steps li::before {
+  content: '';
+  position: absolute; left: 4px; top: 1.15em;
+  width: 9px; height: 9px;
+  border: 1.5px solid var(--ink);
+  transform: rotate(45deg);
+}
+.guide-back { border-bottom: 0; }
+
+@media (max-width: 860px) {
+  .guide-body { grid-template-columns: minmax(0, 1fr); }
+  .guide-toc { position: static; }
+  .guide-bg { inset: 0 calc(-1 * var(--gutter)) 0 0; opacity: 0.6; }
+}
